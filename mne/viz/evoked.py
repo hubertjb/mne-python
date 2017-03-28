@@ -21,7 +21,7 @@ from ..externals.six import string_types
 from ..defaults import _handle_default
 from .utils import (_draw_proj_checkbox, tight_layout, _check_delayed_ssp,
                     plt_show, _process_times, DraggableColorbar, _setup_cmap,
-                    _setup_vmin_vmax)
+                    _setup_vmin_vmax, _connection_line)
 from ..utils import logger, _clean_names, warn, _pl
 from ..io.pick import pick_info
 from .topo import _plot_evoked_topo
@@ -1074,19 +1074,6 @@ def plot_snr_estimate(evoked, inv, show=True):
     plt.draw()
     plt_show(show)
     return fig
-
-
-def _connection_line(x, fig, sourceax, targetax):
-    """Connect time series and topolots."""
-    from matplotlib.lines import Line2D
-    transFigure = fig.transFigure.inverted()
-    tf = fig.transFigure
-
-    (xt, yt) = transFigure.transform(targetax.transAxes.transform([.5, .25]))
-    (xs, _) = transFigure.transform(sourceax.transData.transform([x, 0]))
-    (_, ys) = transFigure.transform(sourceax.transAxes.transform([0, 1]))
-    return Line2D((xt, xs), (yt, ys), transform=tf, color='grey',
-                  linestyle='-', linewidth=1.5, alpha=.66, zorder=0)
 
 
 def plot_evoked_joint(evoked, times="peaks", title='', picks=None,

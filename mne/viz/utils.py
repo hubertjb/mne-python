@@ -1183,6 +1183,7 @@ def _process_times(inst, use_times, n_peaks=None, few=False):
         elif use_times == "auto":
             if n_peaks is None:
                 n_peaks = min(5 if few else 10, len(use_times))
+                print(n_peaks)
             use_times = np.linspace(inst.times[0], inst.times[-1], n_peaks)
         else:
             raise ValueError("Got an unrecognized method for `times`. Only "
@@ -1924,6 +1925,45 @@ def _annotation_radio_clicked(label, radio, selector):
     color = radio.circles[idx].get_edgecolor()
     selector.rect.set_color(color)
     selector.rectprops.update(dict(facecolor=color))
+
+
+def _connection_line(x, fig, sourceax, targetax, y=None):
+    """Connect source and target plots with a line.
+
+    Connect source and target plots with a line, such as time series
+    (source) and topolots (target).
+
+    Parameters
+    ----------
+    x : float
+        X coordinate on source axis
+    fig : Figure
+        Figure to plot in
+    sourceax : Axes
+        Axes of the source plot
+    targetax : Axes
+        Axes of the target plot
+    y : None | float
+        Y coordinate on source axis
+
+    Returns
+    -------
+
+    """
+    from matplotlib.lines import Line2D
+    transFigure = fig.transFigure.inverted()
+    tf = fig.transFigure
+
+    (xt, yt) = transFigure.transform(targetax.transAxes.transform([.5, 0]))
+    (xs, _) = transFigure.transform(sourceax.transData.transform([x, 0]))
+    if y is None:
+        (_, ys) = transFigure.transform(sourceax.transAxes.transform([0, 1]))
+    else:
+        (_, ys) = transFigure.transform(sourceax.transData.transform([0, y]))
+
+    return Line2D((xt, xs), (yt, ys), transform=tf, color='grey',
+                  linestyle='-', linewidth=1.5, alpha=.66, zorder=1,
+                  clip_on=False)
 
 
 class DraggableLine:

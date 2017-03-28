@@ -418,6 +418,11 @@ def test_plot():
     fig.canvas.scroll_event(0.5, 0.5, -0.5)  # scroll down
     fig.canvas.scroll_event(0.5, 0.5, 0.5)  # scroll up
 
+    # TFR - Topomap joint plot
+    topomap_timefreqs = np.array([[tfr.times[4], tfr.freqs[4]],
+                                  [tfr.times[199], tfr.freqs[4]]])
+    fig = tfr.plot(topomap_timefreqs=topomap_timefreqs)
+
     plt.close('all')
 
 
