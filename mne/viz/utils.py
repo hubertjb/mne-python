@@ -1931,23 +1931,6 @@ def _connection_line(x, fig, sourceax, targetax, y=None):
 
     Connect source and target plots with a line, such as time series
     (source) and topolots (target).
-
-    Parameters
-    ----------
-    x : float
-        X coordinate on source axis
-    fig : Figure
-        Figure to plot in
-    sourceax : Axes
-        Axes of the source plot
-    targetax : Axes
-        Axes of the target plot
-    y : None | float
-        Y coordinate on source axis
-
-    Returns
-    -------
-
     """
     from matplotlib.lines import Line2D
     transFigure = fig.transFigure.inverted()

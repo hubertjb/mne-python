@@ -424,49 +424,31 @@ def test_plot_joint():
     """Test TFR plotting."""
     import matplotlib.pyplot as plt
 
-    data = np.zeros((3, 2, 3))
-    times = np.array([.1, .2, .3])
-    freqs = np.array([.10, .20])
-    info = mne.create_info(['MEG 001', 'MEG 002', 'MEG 003'], 1000.,
-                           ['mag', 'mag', 'mag'])
-    tfr = AverageTFR(info, data=data, times=times, freqs=freqs,
-                     nave=20, comment='test', method='crazy-tfr')
-    tfr.plot_joint([0, 1], title='title', colorbar=False)
-    plt.close('all')
-    ax = plt.subplot2grid((2, 2), (0, 0))
-    ax2 = plt.subplot2grid((2, 2), (1, 1))
-    ax3 = plt.subplot2grid((2, 2), (0, 1))
-    tfr.plot_joint(picks=[0, 1, 2], axes=[ax, ax2, ax3])
+    raw = read_raw_fif(raw_fname)
+    times = np.linspace(-0.1, 0.1, 200)
+    n_freqs = 3
+    nave = 1
+    rng = np.random.RandomState(42)
+    data = rng.randn(len(raw.ch_names), n_freqs, len(times))
+    tfr = AverageTFR(raw.info, data, times, np.arange(n_freqs), nave)
+
+    tfr.plot_joint(picks=[0, 1], title='title', colorbar=True)
     plt.close('all')
 
-    tfr.plot_topo(picks=[1, 2])
-    plt.close('all')
-
-    tfr.plot_topo(picks=[1, 2])
-    plt.close('all')
-
-    fig = tfr.plot_joint(picks=[1], cmap='RdBu_r')  # interactive mode on by default
+    fig = tfr.plot_joint(exclude=[raw.ch_names[0]])
     fig.canvas.key_press_event('up')
     fig.canvas.key_press_event(' ')
     fig.canvas.key_press_event('down')
-
-    cbar = fig.get_axes()[0].CB  # Fake dragging with mouse.
-    ax = cbar.cbar.ax
-    _fake_click(fig, ax, (0.1, 0.1))
-    _fake_click(fig, ax, (0.1, 0.2), kind='motion')
-    _fake_click(fig, ax, (0.1, 0.3), kind='release')
-
-    _fake_click(fig, ax, (0.1, 0.1), button=3)
-    _fake_click(fig, ax, (0.1, 0.2), button=3, kind='motion')
-    _fake_click(fig, ax, (0.1, 0.3), kind='release')
-
     fig.canvas.scroll_event(0.5, 0.5, -0.5)  # scroll down
     fig.canvas.scroll_event(0.5, 0.5, 0.5)  # scroll up
 
     # TFR - Topomap joint plot
-    topomap_timefreqs = np.array([[tfr.times[2], tfr.freqs[1]],
-                                  [tfr.times[1], tfr.freqs[1]]])
-    fig = tfr.plot_joint(timefreqs=topomap_timefreqs)
+    timefreqs = [(tfr.times[2], tfr.freqs[1]),
+                 (tfr.times[1], tfr.freqs[1])]
+    timefreqs_average = [(0.1, 0.5),
+                         (0.2, 0.6)]
+    fig = tfr.plot_joint(timefreqs=timefreqs,
+                         timefreqs_average=timefreqs_average)
 
     plt.close('all')
 
