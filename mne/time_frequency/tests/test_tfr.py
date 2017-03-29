@@ -418,10 +418,55 @@ def test_plot():
     fig.canvas.scroll_event(0.5, 0.5, -0.5)  # scroll down
     fig.canvas.scroll_event(0.5, 0.5, 0.5)  # scroll up
 
+    plt.close('all')
+
+def test_plot_joint():
+    """Test TFR plotting."""
+    import matplotlib.pyplot as plt
+
+    data = np.zeros((3, 2, 3))
+    times = np.array([.1, .2, .3])
+    freqs = np.array([.10, .20])
+    info = mne.create_info(['MEG 001', 'MEG 002', 'MEG 003'], 1000.,
+                           ['mag', 'mag', 'mag'])
+    tfr = AverageTFR(info, data=data, times=times, freqs=freqs,
+                     nave=20, comment='test', method='crazy-tfr')
+    tfr.plot_joint([0, 1], title='title', colorbar=False)
+    plt.close('all')
+    ax = plt.subplot2grid((2, 2), (0, 0))
+    ax2 = plt.subplot2grid((2, 2), (1, 1))
+    ax3 = plt.subplot2grid((2, 2), (0, 1))
+    tfr.plot_joint(picks=[0, 1, 2], axes=[ax, ax2, ax3])
+    plt.close('all')
+
+    tfr.plot_topo(picks=[1, 2])
+    plt.close('all')
+
+    tfr.plot_topo(picks=[1, 2])
+    plt.close('all')
+
+    fig = tfr.plot_joint(picks=[1], cmap='RdBu_r')  # interactive mode on by default
+    fig.canvas.key_press_event('up')
+    fig.canvas.key_press_event(' ')
+    fig.canvas.key_press_event('down')
+
+    cbar = fig.get_axes()[0].CB  # Fake dragging with mouse.
+    ax = cbar.cbar.ax
+    _fake_click(fig, ax, (0.1, 0.1))
+    _fake_click(fig, ax, (0.1, 0.2), kind='motion')
+    _fake_click(fig, ax, (0.1, 0.3), kind='release')
+
+    _fake_click(fig, ax, (0.1, 0.1), button=3)
+    _fake_click(fig, ax, (0.1, 0.2), button=3, kind='motion')
+    _fake_click(fig, ax, (0.1, 0.3), kind='release')
+
+    fig.canvas.scroll_event(0.5, 0.5, -0.5)  # scroll down
+    fig.canvas.scroll_event(0.5, 0.5, 0.5)  # scroll up
+
     # TFR - Topomap joint plot
-    topomap_timefreqs = np.array([[tfr.times[4], tfr.freqs[4]],
-                                  [tfr.times[199], tfr.freqs[4]]])
-    fig = tfr.plot(topomap_timefreqs=topomap_timefreqs)
+    topomap_timefreqs = np.array([[tfr.times[2], tfr.freqs[1]],
+                                  [tfr.times[1], tfr.freqs[1]]])
+    fig = tfr.plot_joint(timefreqs=topomap_timefreqs)
 
     plt.close('all')
 

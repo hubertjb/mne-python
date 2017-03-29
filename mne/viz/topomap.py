@@ -962,7 +962,8 @@ def plot_tfr_topomap(tfr, tmin=None, tmax=None, fmin=None, fmax=None,
                      vmin=None, vmax=None, cmap=None, sensors=True,
                      colorbar=True, unit=None, res=64, size=2,
                      cbar_fmt='%1.1e', show_names=False, title=None,
-                     axes=None, show=True, outlines='head', head_pos=None):
+                     axes=None, show=True, outlines='head', contours=False,
+                     head_pos=None):
     """Plot topographic maps of specific time-frequency intervals of TFR data.
 
     Parameters
@@ -1062,6 +1063,12 @@ def plot_tfr_topomap(tfr, tmin=None, tmax=None, fmin=None, fmax=None,
         masking options, either directly or as a function that returns patches
         (required for multi-axis plots). If None, nothing will be drawn.
         Defaults to 'head'.
+    contours : False | int | array of float | None
+        The number of contour lines to draw. If 0, no contours will be drawn.
+        If an array, the values represent the levels for the contours. The
+        values are in uV for EEG, fT for magnetometers and fT/m for
+        gradiometers. If colorbar=True, the ticks in colorbar correspond to the
+        contour levels.
     head_pos : dict | None
         If None (default), the sensors are positioned such that they span
         the head circle. If dict, can have entries 'center' (tuple) and
@@ -1129,10 +1136,13 @@ def plot_tfr_topomap(tfr, tmin=None, tmax=None, fmin=None, fmax=None,
                                  itmin=itmin, itmax=itmax, ifmin=ifmin,
                                  ifmax=ifmax, cmap=cmap[0], fig=fig_wrapper,
                                  layout=layout)
+    
+    if not isinstance(contours, (list, np.ndarray)):
+        _, contours = _set_contour_locator(vmin, vmax, contours)
 
     im, _ = plot_topomap(data[:, 0], pos, vmin=vmin, vmax=vmax,
                          axes=ax, cmap=cmap[0], image_interp='bilinear',
-                         contours=False, names=names, show_names=show_names,
+                         contours=contours, names=names, show_names=show_names,
                          show=False, onselect=selection_callback,
                          sensors=sensors, res=res, head_pos=head_pos,
                          outlines=outlines)
