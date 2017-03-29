@@ -22,7 +22,7 @@ from ..parallel import parallel_func
 from ..utils import logger, verbose, _time_mask, check_fname, sizeof_fmt
 from ..channels.channels import ContainsMixin, UpdateChannelsMixin
 from ..channels.layout import _pair_grad_sensors
-from ..io.pick import pick_info, pick_types
+from ..io.pick import pick_info, pick_types, _pick_data_channels
 from ..io.meas_info import Info
 from ..utils import SizeMixin
 from .multitaper import dpss_windows
@@ -980,7 +980,7 @@ class AverageTFR(_BaseTFR):
         self.preload = True
 
     @verbose
-    def plot(self, picks=None, baseline=None, mode='mean', tmin=None,
+    def plot(self, picks=None, exclude=None, baseline=None, mode='mean', tmin=None,
              tmax=None,
              fmin=None, fmax=None, vmin=None, vmax=None, cmap='RdBu_r',
              dB=False, colorbar=True, show=True, title=None, axes=None,
@@ -993,6 +993,9 @@ class AverageTFR(_BaseTFR):
         picks : None | array-like of int
             The indices of the channels to plot, one figure per channel. If
             None, plot the across-channel average.
+        exclude : None | list of str | 'bads'
+            Channels names to exclude from being shown. If 'bads', the
+            bad channels are excluded. Defaults to None.
         baseline : None (default) or tuple of length 2
             The time interval to apply baseline correction.
             If None do not apply it. If baseline is (a, b)
@@ -1080,7 +1083,7 @@ class AverageTFR(_BaseTFR):
             The figure containing the topography.
         """  # noqa: E501
 
-        return self._plot(picks=picks, baseline=baseline, mode=mode,
+        return self._plot(picks=picks, exclude=exclude, baseline=baseline, mode=mode,
                           tmin=tmin, tmax=tmax, fmin=fmin, fmax=fmax,
                           vmin=vmin, vmax=vmax, cmap=cmap, dB=dB,
                           colorbar=colorbar, show=show, title=title,
@@ -1088,11 +1091,11 @@ class AverageTFR(_BaseTFR):
                           verbose=verbose, aggregate=aggregate)[0]
 
     @verbose
-    def _plot(self, picks=None, baseline=None, mode='mean', tmin=None,
-             tmax=None, fmin=None, fmax=None, vmin=None, vmax=None,
-             cmap='RdBu_r', dB=False, colorbar=True, show=True, title=None,
-             axes=None, layout=None, yscale='auto', verbose=None,
-             aggregate='mean'):
+    def _plot(self, picks=None, exclude=None, baseline=None, mode='mean', 
+              tmin=None, tmax=None, fmin=None, fmax=None, vmin=None, vmax=None,
+              cmap='RdBu_r', dB=False, colorbar=True, show=True, title=None,
+              axes=None, layout=None, yscale='auto', verbose=None,
+              aggregate='mean'):
         """
         Returns
         -------
@@ -1102,15 +1105,28 @@ class AverageTFR(_BaseTFR):
         from ..viz.topo import _imshow_tfr
 
         times, freqs = self.times.copy(), self.freqs.copy()
-        info = self.info
-        data = self.data
 
+        # channel selection
+        # simply create a new tfr object(s) with the desired channel selection
+        average_tfr = self.copy()
+         
         if picks is not None:
             n_picks = len(picks)
-            info, data, picks = _prepare_picks(info, data, picks)
-            data = data[picks]
+            pick_names = [average_tfr.info['ch_names'][pick] for pick in picks]
         else:
-            n_picks = 1
+            n_picks = 1 
+            picks = _pick_data_channels(average_tfr.info, exclude='bads')
+            pick_names = [average_tfr.info['ch_names'][pick] for pick in picks]
+        average_tfr.pick_channels(pick_names)
+        
+        if exclude == 'bads':
+            exclude = [ch for ch in average_tfr.info['bads']
+                       if ch in average_tfr.info['ch_names']]
+        if exclude is not None:
+            average_tfr.drop_channels(exclude) 
+               
+        data = average_tfr.data
+        info = average_tfr.info
 
         if aggregate == 'mean':
             data = np.mean(data, axis=0, keepdims=True)
@@ -1150,14 +1166,13 @@ class AverageTFR(_BaseTFR):
                 fig.suptitle(title)
 
             plt_show(show)
-            return fig, data
+            return fig, data, times, freqs
 
     @verbose
-    def plot_joint(self, picks=None, baseline=None, mode='mean', tmin=None,
-             tmax=None,
-             fmin=None, fmax=None, vmin=None, vmax=None, cmap='RdBu_r',
-             dB=False, colorbar=True, show=True, title=None, axes=None,
-             layout=None, yscale='auto', verbose=None,
+    def plot_joint(self, picks=None, exclude=None, baseline=None, mode='mean',
+             tmin=None, tmax=None, fmin=None, fmax=None, vmin=None, vmax=None, 
+             cmap='RdBu_r', dB=False, colorbar=True, show=True, title=None, 
+             axes=None, layout=None, yscale='auto', verbose=None,
              aggregate='mean',
              timefreqs=None,
              topomap_args=None):
@@ -1169,6 +1184,9 @@ class AverageTFR(_BaseTFR):
         picks : None | array-like of int
             The indices of the channels to plot, one figure per channel. If
             None, plot the across-channel average.
+        exclude : None | list of str | 'bads'
+            Channels names to exclude from being shown. If 'bads', the
+            bad channels are excluded. Defaults to None.
         baseline : None (default) or tuple of length 2
             The time interval to apply baseline correction.
             If None do not apply it. If baseline is (a, b)
@@ -1275,7 +1293,6 @@ class AverageTFR(_BaseTFR):
         - (Make it possible to add the joint plot to an external figure if
           2 axes are provided)
         """  # noqa: E501
-        from ..viz.topo import _imshow_tfr
         from ..viz.topomap import _set_contour_locator
         from ..viz.utils import _setup_vmin_vmax
         import matplotlib.pyplot as plt
@@ -1287,28 +1304,38 @@ class AverageTFR(_BaseTFR):
 
         fig = plt.figure()
         tf_ax = fig.add_subplot(212)
-        if timefreqs is None:
-            pass # TODO: Automatically find peak
-        _, data = self._plot(picks=picks, baseline=baseline, mode=mode,
-                             tmin=tmin, tmax=tmax, fmin=fmin, fmax=fmax,
+     
+        _, tf_data, tf_times, tf_freqs = \
+                             self._plot(picks=picks, exclude=exclude, baseline=baseline, 
+                             mode=mode,tmin=tmin, tmax=tmax, fmin=fmin, fmax=fmax,
                              vmin=vmin, vmax=vmax, cmap=cmap, dB=dB,
                              colorbar=False, show=show, title=title,
                              axes=tf_ax, layout=layout, yscale=yscale,
                              verbose=verbose, aggregate=aggregate)
 
-        vmin, vmax = _setup_vmin_vmax(data, vmin, vmax)
+        vmin, vmax = _setup_vmin_vmax(tf_data, vmin, vmax)
 
         if timefreqs is None:
-            # Case 1: Use equally spaced topomaps, and compute average
-            #         across frequencies
-            # Case 2: Find the maximum peak
-            pass
-
-        else: # The topomap_timefreqs has been provided
-            ts = len(timefreqs) + 2
-
+            # find the maximum peak
+            from scipy.signal import argrelmax            
+            order = tf_data.shape[2] // 30
+            if order < 1:
+                order = 1
+            peaks_idx = argrelmax(tf_data, order=order, axis=2)
+            if peaks_idx[0].size == 0:
+                _,p_t,p_f = np.unravel_index(tf_data.argmax(), tf_data.shape)
+                timefreqs = [(tf_times[p_t], tf_freqs[p_f])]
+            else:
+                peaks = [tf_data[0,f,t] for f,t in zip(peaks_idx[1], peaks_idx[2])]
+                peakmax_idx = np.argmax(peaks)
+                peakmax_time = tf_times[peaks_idx[2][peakmax_idx]]*1e-3
+                peakmax_freq = tf_freqs[peaks_idx[1][peakmax_idx]]
+                
+                timefreqs = [(peakmax_time, peakmax_freq)]
+            
         # prepare axes for topomap
         # slightly convoluted due to colorbar placement and for vertical alignment
+        ts = len(timefreqs) + 2
         map_ax = [plt.subplot(4, ts, x + 2 + ts) for x in range(ts - 2)]
         cbar_ax = plt.subplot(4, 3 * (ts + 1), 6 * (ts + 1))
 
@@ -1320,6 +1347,7 @@ class AverageTFR(_BaseTFR):
                                  k not in ['times', 'axes', 'show', 'colorbar'])
         topomap_args_pass['outlines'] = (topomap_args['outlines'] if 'outlines'
                                          in topomap_args else 'skirt')
+        topomap_args_pass['contours'] = contours
 
         for ax, (time, freq) in zip(map_ax, timefreqs):
             tmin = tmax = time
@@ -1524,7 +1552,8 @@ class AverageTFR(_BaseTFR):
                      layout=None, vmin=None, vmax=None, cmap=None,
                      sensors=True, colorbar=True, unit=None, res=64, size=2,
                      cbar_fmt='%1.1e', show_names=False, title=None,
-                     axes=None, show=True, outlines='head', head_pos=None):
+                     axes=None, show=True, outlines='head', contours=False,
+                     head_pos=None):
         """Plot topographic maps of time-frequency intervals of TFR data.
 
         Parameters
@@ -1627,6 +1656,12 @@ class AverageTFR(_BaseTFR):
             for advanced masking options, either directly or as a function that
             returns patches (required for multi-axis plots). If None, nothing
             will be drawn. Defaults to 'head'.
+        contours : False | int | array of float | None
+            The number of contour lines to draw. If 0, no contours will be drawn.
+            If an array, the values represent the levels for the contours. The
+            values are in uV for EEG, fT for magnetometers and fT/m for
+            gradiometers. If colorbar=True, the ticks in colorbar correspond to the
+            contour levels.
         head_pos : dict | None
             If None (default), the sensors are positioned such that they span
             the head circle. If dict, can have entries 'center' (tuple) and
@@ -1646,7 +1681,8 @@ class AverageTFR(_BaseTFR):
                                 unit=unit, res=res, size=size,
                                 cbar_fmt=cbar_fmt, show_names=show_names,
                                 title=title, axes=axes, show=show,
-                                outlines=outlines, head_pos=head_pos)
+                                outlines=outlines, contours=contours, 
+                                head_pos=head_pos)
 
     def _check_compat(self, tfr):
         """Check that self and tfr have the same time-frequency ranges."""
