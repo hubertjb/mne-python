@@ -1183,7 +1183,6 @@ def _process_times(inst, use_times, n_peaks=None, few=False):
         elif use_times == "auto":
             if n_peaks is None:
                 n_peaks = min(5 if few else 10, len(use_times))
-                print(n_peaks)
             use_times = np.linspace(inst.times[0], inst.times[-1], n_peaks)
         else:
             raise ValueError("Got an unrecognized method for `times`. Only "
