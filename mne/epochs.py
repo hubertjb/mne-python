@@ -1391,6 +1391,36 @@ class BaseEpochs(ProjMixin, ContainsMixin, UpdateChannelsMixin, ShiftTimeMixin,
         """
         return self._get_data(picks=picks)
 
+    def get_single_epoch(self, idx, postprocess=False):
+        """
+        Get a single epoch.
+
+        Parameters
+        ----------
+        idx: int
+            Index of epoch to extract.
+        postprocess: bool
+            If True, apply detrending + offset + decim when loading a new epoch
+            from raw; also, apply projection if configured to do so.
+
+        Returns 
+        -------
+        epoch : array of shape (n_channels, n_times)
+            The specific window that was extracted.
+        """
+        assert isinstance(idx, int)
+        if self.preload:
+            epoch = self._data[idx]
+        else:
+            epoch = self._get_epoch_from_raw(idx)
+            if postprocess:
+                epoch = self._detrend_offset_decim(epoch)
+
+        if postprocess and not self._do_delayed_proj:
+            epoch = self._project_epoch(epoch)
+
+        return epoch
+
     @property
     def times(self):
         """Time vector in seconds."""
